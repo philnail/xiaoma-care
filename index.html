@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="小马护理">
+<link rel="manifest" href="manifest.json">
+<title>小马护理 · 用药与状态记录</title>
+<style>
+:root {
+  --pink: #FFB8C6;
+  --pink-light: #FFF0F3;
+  --mint: #A8E6CF;
+  --mint-light: #E8F8F0;
+  --lavender: #C3B1E1;
+  --lavender-light: #F3EFFA;
+  --peach: #FFDAB9;
+  --cream: #FFF9F0;
+  --bg: #FFF5F5;
+  --card: #ffffff;
+  --text: #4A3728;
+  --sub: #A08C7A;
+  --accent: #E88D95;
+  --accent2: #8EC5B8;
+  --warn: #F0A868;
+  --danger: #E07B7B;
+  --border: #F5E1E1;
+  --radius: 20px;
+  --shadow: 0 3px 18px rgba(232,141,149,.08);
+  --shadow-lg: 0 6px 28px rgba(232,141,149,.12);
+}
+* { box-sizing:border-box; margin:0; padding:0 }
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: linear-gradient(170deg, #FFF5F5 0%, #FFF0F3 30%, #FFFAF5 60%, #F5F9F7 100%);
+  background-attachment: fixed;
+  color: var(--text);
+  min-height: 100vh;
+  padding-bottom: 100px;
+}
+/* Subtle background decoration */
+body::before {
+  content: ''; position: fixed; top: -80px; right: -60px;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(255,184,198,.15) 0%, transparent 70%);
+  border-radius: 50%; z-index: 0; pointer-events: none;
+}
+body::after {
+  content: ''; position: fixed; bottom: 80px; left: -40px;
+  width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(168,230,207,.12) 0%, transparent 70%);
+  border-radius: 50%; z-index: 0; pointer-events: none;
+}
+header {
+  position: relative; z-index: 1;
+  padding: 28px 20px 6px;
+  text-align: center;
+}
+header h1 {
+  font-size: 26px; font-weight: 700; letter-spacing: 2px;
+  background: linear-gradient(135deg, #E88D95, #C3B1E1);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 2px;
+}
+header p {
+  color: var(--sub); font-size: 13px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+header p::before { content: '✨' }
+header p::after { content: '✨' }
+.today-bar {
+  position: relative; z-index: 1;
+  margin: 8px 16px 14px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #fff 0%, #FFF9F9 100%);
+  border-radius: 22px;
+  box-shadow: var(--shadow-lg);
+  border: 1.5px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.today-bar .date { font-size: 15px; font-weight: 700 }
+.today-bar .score-area { display: flex; align-items: center; gap: 10px }
+.today-bar .score-label {
+  font-size: 12px; color: var(--sub);
+  background: var(--pink-light); padding: 4px 10px; border-radius: 12px;
+}
+.today-bar .score-val {
+  font-size: 34px; font-weight: 800;
+  background: linear-gradient(135deg, #E88D95, #C3B1E1);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  min-width: 42px; text-align: center;
+}
+section { position: relative; z-index: 1; margin: 14px 16px }
+section h2 {
+  font-size: 15px; font-weight: 700; margin-bottom: 10px;
+  padding-left: 12px;
+  display: flex; align-items: center; gap: 6px;
+  color: var(--text);
+}
+.card {
+  background: linear-gradient(135deg, #fff 0%, #FFFAFB 100%);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  border: 1.5px solid var(--border);
+  padding: 16px; margin-bottom: 10px;
+  transition: transform .2s, box-shadow .2s;
+}
+.card:active { transform: scale(.985); box-shadow: var(--shadow-lg) }
+.card-row { display: flex; justify-content: space-between; align-items: center }
+.card-title { font-size: 15px; font-weight: 700 }
+.card-sub { font-size: 12px; color: var(--sub); margin-top: 3px }
+.card-right { text-align: right }
+.med-time { font-size: 18px; font-weight: 700; color: var(--accent) }
+.med-check {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 2.5px solid var(--border); background: #fff;
+  font-size: 18px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
+  color: transparent;
+}
+.med-check:hover { border-color: var(--accent); transform: scale(1.08) }
+.med-check.done {
+  background: linear-gradient(135deg, #A8E6CF, #7EC8A0);
+  border-color: #7EC8A0; color: #fff;
+  box-shadow: 0 3px 12px rgba(126,200,160,.25);
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 20px; border-radius: 24px; border: none;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  transition: all .2s cubic-bezier(.4,0,.2,1);
+  position: relative; overflow: hidden;
+}
+.btn:active { transform: scale(.95) }
+.btn-primary {
+  background: linear-gradient(135deg, #E88D95, #D4777F);
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(232,141,149,.3);
+}
+.btn-outline {
+  background: #fff;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+}
+.btn-small { padding: 7px 15px; font-size: 12px; border-radius: 18px }
+.doctor-note {
+  background: linear-gradient(135deg, #FFF9F0, #FFF3E8);
+  border: 1.5px solid #F0D9A0;
+  border-radius: 14px; padding: 14px; margin-top: 10px;
+  font-size: 13px; line-height: 1.7; color: #5C4A2A;
+  position: relative;
+}
+.doctor-note::before {
+  content: '💊'; position: absolute; top: -12px; left: 12px;
+  font-size: 20px;
+}
+.empty {
+  text-align: center; color: var(--sub); padding: 28px;
+  font-size: 14px;
+}
+.empty::before { content: '🌸\\A'; white-space: pre; font-size: 28px; display: block; margin-bottom: 8px }
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(74,55,40,.3); backdrop-filter: blur(4px);
+  z-index: 100; align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex }
+.modal {
+  background: #fff; border-radius: 24px;
+  padding: 26px 22px; width: 90%; max-width: 380px;
+  max-height: 85vh; overflow-y: auto;
+  box-shadow: 0 12px 40px rgba(0,0,0,.10);
+  border: 1.5px solid var(--border);
+  animation: modalIn .3s cubic-bezier(.4,0,.2,1);
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(.9) translateY(20px) }
+  to { opacity: 1; transform: scale(1) translateY(0) }
+}
+.modal h3 {
+  font-size: 18px; font-weight: 700; margin-bottom: 16px;
+  text-align: center;
+  background: linear-gradient(135deg, #E88D95, #C3B1E1);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.modal label { display: block; font-size: 13px; color: var(--sub); margin: 12px 0 4px; font-weight: 600 }
+.modal input, .modal textarea, .modal select {
+  width: 100%; padding: 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: 12px; font-size: 15px; font-family: inherit;
+  background: #FFFAFB;
+  transition: border-color .2s;
+}
+.modal input:focus, .modal textarea:focus, .modal select:focus {
+  outline: none; border-color: var(--accent);
+}
+.modal textarea { resize: vertical; min-height: 70px }
+.modal .btn-row { display: flex; gap: 10px; margin-top: 18px }
+.score-grid {
+  display: grid; grid-template-columns: repeat(5,1fr); gap: 10px;
+  margin: 16px 0;
+}
+.score-btn {
+  padding: 14px 0; border-radius: 14px;
+  border: 2.5px solid var(--border);
+  background: #fff; font-size: 21px; font-weight: 800;
+  cursor: pointer; text-align: center;
+  transition: all .2s cubic-bezier(.4,0,.2,1);
+  color: var(--text);
+}
+.score-btn:hover { border-color: var(--accent); background: var(--pink-light) }
+.score-btn:active { transform: scale(.9) }
+.score-btn.selected {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, #FFF0F3, #FFE4E8);
+  color: var(--accent);
+  box-shadow: 0 3px 12px rgba(232,141,149,.2);
+  transform: scale(1.03);
+}
+.score-btn.selected::after {
+  content: '⭐'; display: block; font-size: 10px; margin-top: 1px;
+}
+nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1.5px solid var(--border);
+  display: flex;
+  padding: 6px 0 env(safe-area-inset-bottom,6px);
+  z-index: 50;
+}
+nav a {
+  flex: 1; text-align: center; font-size: 11px; color: var(--sub);
+  text-decoration: none; padding: 6px 0;
+  transition: color .2s; font-weight: 600;
+}
+nav a.active { color: var(--accent); font-weight: 700 }
+nav a .icon { font-size: 24px; display: block; margin-bottom: 2px }
+.fab {
+  position: fixed; bottom: 88px; right: 18px;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, #E88D95, #D4777F);
+  color: #fff; border: none;
+  font-size: 28px; cursor: pointer;
+  box-shadow: 0 6px 24px rgba(232,141,149,.35);
+  z-index: 60; transition: all .2s cubic-bezier(.4,0,.2,1);
+  display: flex; align-items: center; justify-content: center;
+}
+.fab:hover { transform: scale(1.06) }
+.fab:active { transform: scale(.9) }
+@keyframes float {
+  0%, 100% { transform: translateY(0) }
+  50% { transform: translateY(-4px) }
+}
+.fab { animation: float 3s ease-in-out infinite }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌿 小马护理</h1>
+  <p>用药记录 · 状态追踪</p>
+</header>
+
+<div class="today-bar" id="todayBar">
+  <div>
+    <div class="date" id="todayDate"></div>
+    <div style="font-size:12px;color:var(--sub);margin-top:2px">今日状态</div>
+  </div>
+  <div class="score-area">
+    <span class="score-val" id="todayScore">-</span>
+  </div>
+</div>
+
+<section>
+  <h2>💊 今日用药</h2>
+  <div id="medList"></div>
+</section>
+
+<section>
+  <h2>📊 今日评分</h2>
+  <div class="card" style="padding:12px 8px">
+    <div id="scorePicker" style="display:flex;justify-content:space-between;gap:2px;flex-wrap:wrap"></div>
+  </div>
+</section>
+
+<section>
+  <h2>📋 状态记录（近7天）</h2>
+  <div id="scoreHistory"></div>
+</section>
+
+<section>
+  <h2>📈 趋势图表</h2>
+  <div class="card" style="padding:12px">
+    <canvas id="scoreChart" width="340" height="180" style="width:100%;height:auto;border-radius:8px"></canvas>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button class="btn btn-outline btn-small" onclick="drawChart(30)" id="btn30d">30天</button>
+    <button class="btn btn-outline btn-small" onclick="drawChart(90)" id="btn90d">90天</button>
+    <button class="btn btn-outline btn-small" onclick="drawChart(180)" id="btn180d">半年</button>
+    <button class="btn btn-primary btn-small" onclick="exportCSV(90)" style="margin-left:auto">📥 导出CSV</button>
+  </div>
+</section>
+
+<section>
+  <h2>🏥 复诊</h2>
+  <div id="visitInfo"></div>
+</section>
+
+<section>
+  <h2>💭 心情记录</h2>
+  <div class="card" style="text-align:center;padding:20px">
+    <button id="micBtn" class="btn" style="width:64px;height:64px;border-radius:50%;font-size:28px;padding:0;background:linear-gradient(135deg,#E88D95,#D4777F);color:#fff;box-shadow:0 4px 20px rgba(232,141,149,.35);transition:all .3s" onclick="toggleMemo()">🎤</button>
+    <div id="memoStatus" style="margin-top:10px;font-size:13px;color:var(--sub)">点按录音，说话自动转文字</div>
+    <div id="memoLive" style="margin-top:8px;font-size:14px;color:var(--text);min-height:24px;font-style:italic"></div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:8px">
+    <button class="btn btn-outline btn-small" onclick="exportMemos()">📥 导出文字</button>
+    <button class="btn btn-outline btn-small" onclick="exportMemoAudio()">📥 导出录音</button>
+  </div>
+  <div id="memoList"></div>
+</section>
+
+<nav>
+  <a href="#" class="active" id="navHome">
+    <span class="icon">🏠</span>首页
+  </a>
+  <a href="#" id="navSettings">
+    <span class="icon">⚙️</span>设置
+  </a>
+</nav>
+
+<!-- Notification permission bar -->
+<div id="settingsPanel" style="display:none">
+<section>
+  <h2>⚙️ 用药提醒设置</h2>
+  <div id="medSettings"></div>
+  <button class="btn btn-primary" onclick="addMedReminder()" style="margin-top:8px">+ 添加用药提醒</button>
+</section>
+
+<section>
+  <h2>📊 状态评分提醒</h2>
+  <div class="card">
+    <div class="card-row">
+      <div>
+        <div class="card-title">每日评分提醒</div>
+        <div class="card-sub">每天定时提醒记录状态</div>
+      </div>
+      <div>
+        <input type="time" id="scoreRemindTime" style="font-size:16px;padding:6px;border-radius:8px;border:1px solid var(--border)">
+        <button class="btn btn-small btn-outline" onclick="saveScoreRemind()" style="margin-top:6px;display:block">保存</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>🏥 复诊设置</h2>
+  <div class="card">
+    <label>下次复诊日期</label>
+    <input type="date" id="visitDate" style="margin-bottom:8px">
+    <label>提前几天提醒</label>
+    <select id="visitRemindDays">
+      <option value="1">提前1天</option>
+      <option value="2" selected>提前2天</option>
+    </select>
+    <label>复诊医院/大夫</label>
+    <input type="text" id="visitDoctor" placeholder="如：安定医院 陈晗晖">
+    <button class="btn btn-primary" onclick="saveVisit()" style="margin-top:12px">保存</button>
+  </div>
+</section>
+
+<section>
+  <h2>💬 大夫嘱咐</h2>
+  <div id="doctorNotes"></div>
+  <button class="btn btn-outline" onclick="addDoctorNote()" style="margin-top:8px">+ 记录本次复诊医嘱</button>
+</section>
+
+<section>
+  <h2>🔊 语音提醒</h2>
+  <div class="card">
+    <div class="card-row">
+      <div>
+        <div class="card-title">童声语音</div>
+        <div class="card-sub">到点会先响铃再说话</div>
+      </div>
+      <button class="btn btn-small btn-primary" onclick="testVoice()">🔊 试听</button>
+    </div>
+  </div>
+  <div class="card" style="margin-top:8px">
+    <label>语速（越小越慢）</label>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:12px;color:var(--sub)">慢</span>
+      <input type="range" id="voiceRate" min="0.5" max="1.2" step="0.02" onchange="updateVoiceRate()" style="flex:1">
+      <span style="font-size:12px;color:var(--sub)">快</span>
+      <span id="voiceRateVal" style="font-size:13px;font-weight:700;color:var(--accent);min-width:36px;text-align:right"></span>
+    </div>
+    <label>背景音乐音量</label>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:12px;color:var(--sub)">轻</span>
+      <input type="range" id="musicVolume" min="0.01" max="0.15" step="0.01" onchange="updateMusicVolume()" style="flex:1">
+      <span style="font-size:12px;color:var(--sub)">响</span>
+      <span id="musicVolumeVal" style="font-size:13px;font-weight:700;color:var(--accent);min-width:36px;text-align:right"></span>
+    </div>
+  </div>
+  <div class="card" style="margin-top:8px">
+    <label>用药提醒语音</label>
+    <input type="text" id="voiceMed" value="小宝该吃药了" onchange="updateVoice()">
+    <label>评分提醒语音</label>
+    <input type="text" id="voiceScore" value="该记录今天的状态了，打个分吧" onchange="updateVoice()">
+    <label>复诊提醒语音</label>
+    <input type="text" id="voiceVisit" value="明天要去医院复诊了，别忘了" onchange="updateVoice()">
+  </div>
+</section>
+
+<section>
+  <h2>👨‍👩‍👧 家庭同步</h2>
+  <div class="card">
+    <div class="card-sub" style="margin-bottom:8px">两台手机设同一个家庭码。病人正常用，家属打开「我是家属」开关即可查看。</div>
+    <label>家庭码</label>
+    <input type="text" id="familyCode" placeholder="如：xiaoba-2024" onchange="updateFamilyCode()">
+    <div class="card-row" style="margin-top:12px">
+      <div>
+        <div class="card-title">👀 我是家属（只看不操作）</div>
+        <div class="card-sub">打开后自动显示病人用药状态</div>
+      </div>
+      <input type="checkbox" id="familyMode" onchange="toggleFamilyMode()" style="width:24px;height:24px;accent-color:var(--accent)">
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- Notification permission bar -->
+<div id="notifyBanner" style="display:none;position:fixed;top:0;left:0;right:0;background:linear-gradient(135deg,#FFF0F3,#FFE8EC);padding:14px 16px;text-align:center;font-size:13px;z-index:200;border-bottom:1.5px solid #F5E1E1;font-weight:600;color:#C07A85">
+  🔔 开启通知，到点提醒你吃药哦～
+  <button class="btn btn-small btn-primary" onclick="requestNotify()" style="margin-left:8px">开启</button>
+</div>
+
+<script>
+// ── Storage ──
+function load(k,d) { try { const v=localStorage.getItem(k); return v?JSON.parse(v):d } catch(e) { return d } }
+function save(k,v) { localStorage.setItem(k,JSON.stringify(v)) }
+
+// ── State ──
+let meds = load('meds', [
+  { id:1, name:'帕立派酮', time:'08:00', done:false },
+  { id:2, name:'帕立派酮', time:'20:00', done:false },
+  { id:3, name:'文拉法辛', time:'08:00', done:false },
+  { id:4, name:'罗拉(应急)', time:'', done:false, asNeeded:true },
+]);
+let scores = load('scores', {});
+let scoreRemindTime = load('scoreRemindTime', '21:00');
+let visitInfo = load('visitInfo', null);
+let doctorNotes = load('doctorNotes', []);
+
+function getToday() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// ── Render ──
+function fmtDate(d) {
+  const w = ['日','一','二','三','四','五','六'];
+  const dt = new Date(d);
+  return `${dt.getMonth()+1}月${dt.getDate()}日 周${w[dt.getDay()]}`;
+}
+
+function renderTodayBar() {
+  document.getElementById('todayDate').textContent = fmtDate(getToday());
+  const s = scores[getToday()];
+  document.getElementById('todayScore').textContent = s !== undefined ? s : '-';
+}
+
+function renderMeds() {
+  const el = document.getElementById('medList');
+  if (!meds.length) { el.innerHTML = '<div class="empty">暂无用药设置，去设置页添加</div>'; return }
+  el.innerHTML = meds.filter(m => !m.asNeeded || m.done).map(m => {
+    return `<div class="card" style="${m.asNeeded?'opacity:.6':''}">
+      <div class="card-row">
+        <div>
+          <div class="card-title">${m.name}${m.asNeeded?'（应急）':''}</div>
+          <div class="card-sub">${m.time||'不设时间'}</div>
+        </div>
+        <div>
+          ${m.time?`<div class="card-row" style="gap:8px">
+            <button class="med-check ${m.done?'done':''}" onclick="toggleMed(${m.id})">✓ 服用</button>
+          </div>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderScoreHistory() {
+  const el = document.getElementById('scoreHistory');
+  const days = [];
+  for (let i=6; i>=0; i--) {
+    const d = new Date(Date.now() - i*86400000).toISOString().slice(0,10);
+    days.push(d);
+  }
+  const hasAny = days.some(d => scores[d] !== undefined);
+  if (!hasAny) { el.innerHTML = '<div class="empty">还没记录过状态，点右下角 ＋ 开始</div>'; return }
+  el.innerHTML = days.map(d => {
+    const s = scores[d];
+    return `<div class="card card-row" style="padding:12px 16px">
+      <span style="font-size:14px">${fmtDate(d)}</span>
+      <span style="font-size:20px;font-weight:700;color:${s!==undefined? ratingColor(s):'var(--sub)'}">${s!==undefined?s:'-'}</span>
+    </div>`;
+  }).join('');
+}
+
+function ratingColor(s) {
+  if (s >= 8) return '#8EC5B8';
+  if (s >= 5) return '#F0A868';
+  return '#E07B7B';
+}
+
+// ── Chart ──
+function getScoreData(days) {
+  const data = [];
+  for (let i = days-1; i >= 0; i--) {
+    const d = new Date(Date.now() - i*86400000).toISOString().slice(0,10);
+    const s = scores[d];
+    data.push({ date: d, score: s !== undefined ? s : null });
+  }
+  return data;
+}
+
+function drawChart(days) {
+  const data = getScoreData(days);
+  const canvas = document.getElementById('scoreChart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const pad = { top: 20, right: 20, bottom: 35, left: 30 };
+  const pw = W - pad.left - pad.right;
+  const ph = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.fillStyle = '#FFF9F9';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = '#F5E1E1';
+  ctx.lineWidth = 0.5;
+  for (let i = 1; i <= 10; i++) {
+    const y = pad.top + ph * (1 - i/10);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(W - pad.right, y);
+    ctx.stroke();
+    ctx.fillStyle = '#A08C7A';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(i, pad.left - 4, y + 3);
+  }
+
+  const greenY = pad.top + ph * 0.2;
+  const yellowY = pad.top + ph * 0.5;
+  ctx.fillStyle = 'rgba(168,230,207,0.10)';
+  ctx.fillRect(pad.left, pad.top, pw, greenY - pad.top);
+  ctx.fillStyle = 'rgba(240,168,104,0.08)';
+  ctx.fillRect(pad.left, greenY, pw, yellowY - greenY);
+  ctx.fillStyle = 'rgba(224,123,123,0.08)';
+  ctx.fillRect(pad.left, yellowY, pw, H - pad.bottom - yellowY);
+
+  const step = Math.max(1, Math.floor(data.length / 6));
+  data.forEach((d, i) => {
+    if (i % step === 0 || i === data.length - 1) {
+      const x = pad.left + (i / (data.length - 1)) * pw;
+      ctx.fillStyle = '#A08C7A';
+      ctx.font = '8px sans-serif';
+      ctx.textAlign = 'center';
+      const label = d.date.slice(5);
+      ctx.fillText(label, x, H - pad.bottom + 14);
+    }
+  });
+
+  const validPoints = data.filter(d => d.score !== null);
+  if (validPoints.length >= 2) {
+    ctx.beginPath();
+    ctx.strokeStyle = '#E88D95';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    validPoints.forEach((d, i) => {
+      const idx = data.indexOf(d);
+      const x = pad.left + (idx / (data.length - 1)) * pw;
+      const y = pad.top + ph * (1 - d.score / 10);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    validPoints.forEach(d => {
+      const idx = data.indexOf(d);
+      const x = pad.left + (idx / (data.length - 1)) * pw;
+      const y = pad.top + ph * (1 - d.score / 10);
+      ctx.beginPath();
+      ctx.arc(x, y, 3.5, 0, Math.PI*2);
+      ctx.fillStyle = ratingColor(d.score);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#2c2416';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(d.score, x, y - 7);
+    });
+  } else if (validPoints.length === 1) {
+    const d = validPoints[0];
+    const idx = data.indexOf(d);
+    const x = pad.left + (idx / Math.max(1, data.length - 1)) * pw;
+    const y = pad.top + ph * (1 - d.score / 10);
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI*2);
+    ctx.fillStyle = ratingColor(d.score);
+    ctx.fill();
+    ctx.fillStyle = '#2c2416';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.score, x, y - 8);
+  } else {
+    ctx.fillStyle = '#A08C7A';
+    ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🌸 暂无数据', W/2, H/2);
+  }
+
+  document.querySelectorAll('#btn30d,#btn90d,#btn180d').forEach(b => b.style.background = '');
+  const btnId = days === 30 ? 'btn30d' : days === 90 ? 'btn90d' : 'btn180d';
+  const btn = document.getElementById(btnId);
+  if (btn) btn.style.background = '#FFF0F3';
+}
+
+function exportCSV(days) {
+  const data = getScoreData(days);
+  let csv = '日期,评分\n';
+  data.forEach(d => { csv += `${d.date},${d.score !== null ? d.score : ''}\n`; });
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `状态记录_${new Date().toISOString().slice(0,10)}_${days}天.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function renderVisit() {
+  const el = document.getElementById('visitInfo');
+  if (!visitInfo) { el.innerHTML = '<div class="empty">未设置复诊，去设置页添加</div>'; return }
+  const daysLeft = Math.ceil((new Date(visitInfo.date) - new Date()) / 86400000);
+  el.innerHTML = `<div class="card">
+    <div class="card-row">
+      <div>
+        <div class="card-title">🏥 ${visitInfo.doctor||'复诊'}</div>
+        <div class="card-sub">${visitInfo.date}（${daysLeft>0?`还有${daysLeft}天`:'已过期'}）</div>
+      </div>
+      <div style="font-size:24px;color:${daysLeft<=visitInfo.remindDays?'var(--warn)':'var(--sub)'}">${daysLeft<=visitInfo.remindDays?'🔔':'📅'}</div>
+    </div>
+  </div>`;
+}
+
+function renderDoctorNotes() {
+  const el = document.getElementById('doctorNotes');
+  if (!doctorNotes.length) { el.innerHTML = '<div class="empty">暂无记录</div>'; return }
+  el.innerHTML = doctorNotes.map((n,i) => `
+    <div class="doctor-note">
+      <div style="font-weight:600;margin-bottom:4px">${n.date} · ${n.title||'复诊记录'}</div>
+      <div>${n.content}</div>
+      <button class="btn btn-small" style="margin-top:8px;color:var(--danger);border-color:var(--danger)" onclick="deleteNote(${i})">删除</button>
+    </div>
+  `).join('');
+}
+
+// ── Actions ──
+function toggleMed(id) {
+  const m = meds.find(x => x.id === id);
+  if (!m) return;
+  m.done = !m.done;
+  save('meds', meds);
+  renderMeds();
+  postToSW();
+}
+
+function renderScorePicker() {
+  const el = document.getElementById('scorePicker');
+  if (!el) return;
+  const cur = scores[getToday()];
+  el.innerHTML = Array.from({length:10}, (_,i)=>i+1).map(n =>
+    `<button class="score-btn ${cur===n?'selected':''}" onclick="pickScore(${n})">${n}</button>`
+  ).join('');
+}
+
+function pickScore(n) {
+  scores[getToday()] = n;
+  save('scores', scores);
+  renderTodayBar();
+  renderScorePicker();
+  renderScoreHistory();
+  drawChart(90);
+}
+
+function addMedReminder() {
+  const name = prompt('药品名称：'); if (!name) return;
+  const time = prompt('提醒时间（如 08:00）：', '08:00');
+  meds.push({ id: Date.now(), name, time, done: false });
+  save('meds', meds);
+  renderMedSettings(); renderMeds();
+  postToSW();
+}
+
+function deleteMed(id) {
+  meds = meds.filter(m => m.id !== id);
+  save('meds', meds);
+  renderMedSettings(); renderMeds();
+  postToSW();
+}
+
+function renderMedSettings() {
+  const el = document.getElementById('medSettings');
+  el.innerHTML = meds.map(m => `
+    <div class="card card-row" style="padding:12px 16px">
+      <div>
+        <div class="card-title">${m.name}${m.asNeeded?'（应急）':''}</div>
+        <div class="card-sub">${m.time||'不设时间'}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-small btn-outline" onclick="editMed(${m.id})">编辑</button>
+        <button class="btn btn-small" style="color:var(--danger);border-color:var(--danger)" onclick="deleteMed(${m.id})">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function editMed(id) {
+  const m = meds.find(x => x.id === id);
+  if (!m) return;
+  const name = prompt('药品名称：', m.name);
+  if (!name) return;
+  const time = prompt('提醒时间（如 08:00，留空不设）：', m.time || '');
+  m.name = name;
+  m.time = time || '';
+  save('meds', meds);
+  renderMedSettings();
+  renderMeds();
+  postToSW();
+}
+
+function saveScoreRemind() {
+  const t = document.getElementById('scoreRemindTime').value;
+  scoreRemindTime = t; save('scoreRemindTime', t);
+  scheduleReminders(); postToSW();
+  alert('评分提醒已保存：每天 ' + t);
+}
+
+function saveVisit() {
+  const date = document.getElementById('visitDate').value;
+  const days = parseInt(document.getElementById('visitRemindDays').value);
+  const doctor = document.getElementById('visitDoctor').value;
+  if (!date) return;
+  visitInfo = { date, remindDays: days, doctor };
+  save('visitInfo', visitInfo);
+  renderVisit(); scheduleReminders(); postToSW();
+  alert('复诊信息已保存');
+}
+
+function addDoctorNote() {
+  const title = prompt('本次复诊简述（如：调药方案）：', '复诊记录'); if (!title) return;
+  const content = prompt('大夫嘱咐/要求：'); if (!content) return;
+  const date = prompt('日期：', getToday());
+  doctorNotes.unshift({ date, title, content });
+  save('doctorNotes', doctorNotes);
+  renderDoctorNotes();
+}
+
+function deleteNote(i) { doctorNotes.splice(i,1); save('doctorNotes', doctorNotes); renderDoctorNotes(); }
+
+// ── Speech ──
+let voiceEnabled = load('voiceEnabled', true);
+let voiceTexts = load('voiceTexts', {
+  med: '小宝该吃药了',
+  score: '该记录今天的状态了，打个分吧', visit: '明天要去医院复诊了，别忘了',
+});
+let voiceRate = load('voiceRate', 0.82);
+let musicVolume = load('musicVolume', 0.06);
+
+function playLullaby(ctx, durationSec) {
+  const masterGain = ctx.createGain();
+  masterGain.gain.value = 0;
+  masterGain.gain.linearRampToValueAtTime(musicVolume, ctx.currentTime + 1.2);
+  masterGain.connect(ctx.destination);
+  const notes = [523, 587, 659, 784, 880, 1047, 1175, 1319];
+  const pattern = [0, 2, 4, 2, 1, 3, 5, 3, 0, 2, 4, 7, 5, 3, 1, 0];
+  const noteLen = 0.9;
+  const totalNotes = Math.min(pattern.length, Math.ceil(durationSec / noteLen));
+  const oscillators = [];
+  for (let i = 0; i < totalNotes; i++) {
+    const t = ctx.currentTime + i * noteLen;
+    const osc = ctx.createOscillator();
+    const noteGain = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.value = notes[pattern[i % pattern.length]];
+    noteGain.gain.setValueAtTime(0, t);
+    noteGain.gain.linearRampToValueAtTime(0.7, t + 0.15);
+    noteGain.gain.setValueAtTime(0.7, t + noteLen * 0.7);
+    noteGain.gain.linearRampToValueAtTime(0.001, t + noteLen);
+    osc.connect(noteGain); noteGain.connect(masterGain);
+    osc.start(t); osc.stop(t + noteLen + 0.1);
+    oscillators.push(osc);
+    if (i % 4 === 0) {
+      const drone = ctx.createOscillator();
+      const droneGain = ctx.createGain();
+      drone.type = 'sine'; drone.frequency.value = 131;
+      droneGain.gain.setValueAtTime(0, t);
+      droneGain.gain.linearRampToValueAtTime(0.25, t + 0.3);
+      droneGain.gain.linearRampToValueAtTime(0.001, t + noteLen * 4);
+      drone.connect(droneGain); droneGain.connect(masterGain);
+      drone.start(t); drone.stop(t + noteLen * 4 + 0.1);
+      oscillators.push(drone);
+    }
+  }
+  return { stop: () => {
+    masterGain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 1.5);
+    setTimeout(() => { oscillators.forEach(o => { try { o.stop() } catch(e) {} }); }, 2000);
+  }};
+}
+
+function playChime(ctx) {
+  const now = ctx.currentTime;
+  const notes = [880, 1100, 1319];
+  notes.forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, now + i * 0.18);
+    gain.gain.linearRampToValueAtTime(0.12, now + i * 0.18 + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.18 + 0.6);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(now + i * 0.18); osc.stop(now + i * 0.18 + 0.7);
+  });
+}
+
+function speak(key) {
+  if (!voiceEnabled) return;
+  const text = voiceTexts[key];
+  if (!text) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    playChime(ctx);
+    const estDuration = Math.max(6, text.length / 2.0);
+    const lullaby = playLullaby(ctx, estDuration);
+    setTimeout(() => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'zh-CN'; u.rate = voiceRate; u.pitch = 1.4; u.volume = 1.0;
+        const voices = window.speechSynthesis.getVoices();
+        const zhVoice = voices.find(v => v.lang.startsWith('zh') && (v.name.includes('Tingting') || v.name.includes('Meijia') || v.name.includes('Female') || v.name.includes('Google')));
+        if (zhVoice) u.voice = zhVoice;
+        u.onend = () => lullaby.stop();
+        u.onerror = () => lullaby.stop();
+        setTimeout(() => lullaby.stop(), 20000);
+        window.speechSynthesis.speak(u);
+      } else { lullaby.stop(); }
+    }, 600);
+  } catch(e) {}
+}
+
+function testVoice() { voiceEnabled = true; save('voiceEnabled', true); speak('med'); }
+function updateVoice() {
+  voiceTexts.med = document.getElementById('voiceMed').value;
+  voiceTexts.score = document.getElementById('voiceScore').value;
+  voiceTexts.visit = document.getElementById('voiceVisit').value;
+  save('voiceTexts', voiceTexts);
+}
+function updateVoiceRate() {
+  voiceRate = parseFloat(document.getElementById('voiceRate').value);
+  document.getElementById('voiceRateVal').textContent = voiceRate.toFixed(2);
+  save('voiceRate', voiceRate);
+}
+function updateMusicVolume() {
+  musicVolume = parseFloat(document.getElementById('musicVolume').value);
+  document.getElementById('musicVolumeVal').textContent = Math.round(musicVolume * 100) + '%';
+  save('musicVolume', musicVolume);
+}
+
+function updateFamilyCode() {
+  familyCode = document.getElementById('familyCode').value.trim();
+  save('familyCode', familyCode);
+  syncFamily();
+}
+
+let isFamilyMode = load('familyMode', false);
+
+function toggleFamilyMode() {
+  isFamilyMode = document.getElementById('familyMode').checked;
+  save('familyMode', isFamilyMode);
+  if (isFamilyMode) enterFamilyView();
+  else location.reload();
+}
+
+function enterFamilyView() {
+  document.body.classList.add('family-view');
+  document.querySelector('header h1').textContent = '👀 家属查看';
+  document.querySelector('header p').textContent = '实时用药状态';
+  // Hide interactive settings but keep nav so they can switch back
+  document.querySelectorAll('body > section').forEach(s => s.style.display = 'none');
+  document.getElementById('navSettings').style.display = '';
+  document.getElementById('navHome').classList.add('active');
+  document.getElementById('navSettings').classList.remove('active');
+  pollFamilyView();
+  setInterval(pollFamilyView, 15000);
+}
+
+function initFamilyView() {
+  document.getElementById('familyMode').checked = isFamilyMode;
+  if (isFamilyMode && familyCode) enterFamilyView();
+}
+
+// ── Notifications ──
+function requestNotify() {
+  if ('Notification' in window) {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') {
+        document.getElementById('notifyBanner').style.display = 'none';
+        scheduleReminders();
+      }
+    });
+  }
+}
+
+function scheduleReminders() {
+  if (window._reminders) window._reminders.forEach(clearInterval);
+  window._reminders = [];
+  const check = () => {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const current = `${hh}:${mm}`;
+    meds.forEach(m => {
+      if (m.time && m.time === current && !m.done) {
+        speak('med');
+        if (Notification.permission==='granted')
+          new Notification('💊 用药提醒', { body: `该服用 ${m.name} 了`, tag: `med-${m.id}-${getToday()}`, requireInteraction: true, silent: false, vibrate: [200,100,200,100,400] });
+        renderMeds();
+      }
+    });
+    if (scoreRemindTime === current) {
+      let sc = load('_scoreRemindCount', 0);
+      if (sc < 2) {
+        speak('score');
+        if (Notification.permission==='granted')
+          new Notification('📊 状态记录', { body: '该记录今天的状态评分了（1-10分）', tag: `score-${getToday()}`, requireInteraction: true, silent: false, vibrate: [200,100,200] });
+        save('_scoreRemindCount', sc + 1);
+      }
+    }
+    if (visitInfo) {
+      const vDate = new Date(visitInfo.date);
+      const daysLeft = Math.ceil((vDate - now) / 86400000);
+      if (daysLeft === visitInfo.remindDays) {
+        speak('visit');
+        if (Notification.permission==='granted')
+          new Notification('🏥 复诊提醒', { body: `还有${daysLeft}天复诊：${visitInfo.doctor||''} (${visitInfo.date})`, tag: `visit-${visitInfo.date}`, requireInteraction: true, silent: false, vibrate: [200,100,200,100,400] });
+      }
+    }
+  };
+  window._reminders.push(setInterval(check, 30000));
+  check();
+  postToSW();
+}
+
+function resetDailyMeds() {
+  const lastReset = load('lastReset', '');
+  if (lastReset !== getToday()) {
+    meds.forEach(m => { m.done = false; });
+    save('meds', meds); save('lastReset', getToday());
+    save('_scoreRemindCount', 0);
+    renderMeds();
+  }
+}
+
+// ── Settings navigation ──
+document.getElementById('navHome').addEventListener('click', function(e) {
+  e.preventDefault();
+  document.querySelectorAll('body > section').forEach(s => s.style.display = '');
+  const sh = document.getElementById('scoreHistory'); if (sh) sh.style.display = '';
+  document.querySelectorAll('#settingsPanel section').forEach(s => s.style.display = 'none');
+  document.querySelector('header').style.display = '';
+  document.querySelector('.today-bar').style.display = '';
+  document.getElementById('settingsPanel').style.display = 'none';
+  document.getElementById('navHome').classList.add('active');
+  document.getElementById('navSettings').classList.remove('active');
+});
+
+document.getElementById('navSettings').addEventListener('click', function(e) {
+  e.preventDefault();
+  document.querySelectorAll('body > section, #scoreHistory').forEach(s => s.style.display = 'none');
+  document.querySelectorAll('#settingsPanel section').forEach(s => s.style.display = '');
+  document.querySelector('header').style.display = 'none';
+  document.querySelector('.today-bar').style.display = 'none';
+  document.getElementById('settingsPanel').style.display = 'block';
+  document.getElementById('navSettings').classList.add('active');
+  document.getElementById('navHome').classList.remove('active');
+  renderMedSettings(); renderDoctorNotes();
+  document.getElementById('scoreRemindTime').value = scoreRemindTime;
+  if (visitInfo) {
+    document.getElementById('visitDate').value = visitInfo.date;
+    document.getElementById('visitRemindDays').value = visitInfo.remindDays;
+    document.getElementById('visitDoctor').value = visitInfo.doctor||'';
+  }
+  document.getElementById('voiceMed').value = voiceTexts.med;
+  document.getElementById('voiceScore').value = voiceTexts.score;
+  document.getElementById('voiceVisit').value = voiceTexts.visit;
+  document.getElementById('voiceRate').value = voiceRate;
+  document.getElementById('voiceRateVal').textContent = voiceRate.toFixed(2);
+  document.getElementById('musicVolume').value = musicVolume;
+  document.getElementById('musicVolumeVal').textContent = Math.round(musicVolume * 100) + '%';
+  document.getElementById('familyCode').value = familyCode;
+  document.getElementById('familyMode').checked = isFamilyMode;
+});
+
+// ── Voice Memo ──
+let memoRecorder = null;
+let memoChunks = [];
+let memoRecognition = null;
+let isMemoRecording = false;
+
+const memoDB = (() => {
+  let db = null;
+  function open() {
+    return new Promise((resolve, reject) => {
+      if (db) return resolve(db);
+      const req = indexedDB.open('XiaomaMemo', 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore('memos', { keyPath: 'id' }); };
+      req.onsuccess = () => { db = req.result; resolve(db); };
+      req.onerror = () => reject(req.error);
+    });
+  }
+  return {
+    async getAll() {
+      const d = await open();
+      return new Promise(resolve => {
+        const tx = d.transaction('memos', 'readonly');
+        const req = tx.objectStore('memos').getAll();
+        req.onsuccess = () => resolve((req.result || []).sort((a, b) => b.date - a.date));
+      });
+    },
+    async put(memo) {
+      const d = await open();
+      return new Promise(resolve => {
+        const tx = d.transaction('memos', 'readwrite');
+        tx.objectStore('memos').put(memo);
+        tx.oncomplete = resolve;
+      });
+    },
+    async remove(id) {
+      const d = await open();
+      return new Promise(resolve => {
+        const tx = d.transaction('memos', 'readwrite');
+        tx.objectStore('memos').delete(id);
+        tx.oncomplete = resolve;
+      });
+    },
+  };
+})();
+
+async function toggleMemo() {
+  if (isMemoRecording) {
+    stopMemo();
+  } else {
+    startMemo();
+  }
+}
+
+async function startMemo() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    memoRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    memoChunks = [];
+
+    memoRecorder.ondataavailable = e => { if (e.data.size > 0) memoChunks.push(e.data); };
+    memoRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(memoChunks, { type: 'audio/webm' });
+      saveMemo(blob);
+    };
+    memoRecorder.start();
+
+    // Speech recognition
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      memoRecognition = new SR();
+      memoRecognition.lang = 'zh-CN';
+      memoRecognition.continuous = true;
+      memoRecognition.interimResults = true;
+      memoRecognition.onresult = e => {
+        let transcript = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          transcript += e.results[i][0].transcript;
+        }
+        document.getElementById('memoLive').textContent = transcript;
+      };
+      memoRecognition.onerror = () => {}; // silent
+      memoRecognition.start();
+    }
+
+    isMemoRecording = true;
+    document.getElementById('micBtn').textContent = '⏹';
+    document.getElementById('micBtn').style.background = 'linear-gradient(135deg,#E07B7B,#c0392b)';
+    document.getElementById('micBtn').style.animation = 'float 1s ease-in-out infinite';
+    document.getElementById('memoStatus').textContent = '🔴 正在录音...再次点击停止';
+    document.getElementById('memoLive').textContent = '';
+  } catch (e) {
+    document.getElementById('memoStatus').textContent = '⚠ 无法访问麦克风，请授权';
+  }
+}
+
+function stopMemo() {
+  if (memoRecorder && memoRecorder.state !== 'inactive') memoRecorder.stop();
+  if (memoRecognition) { try { memoRecognition.stop() } catch (e) {} }
+  isMemoRecording = false;
+  document.getElementById('micBtn').textContent = '🎤';
+  document.getElementById('micBtn').style.background = 'linear-gradient(135deg,#E88D95,#D4777F)';
+  document.getElementById('micBtn').style.animation = 'float 3s ease-in-out infinite';
+  document.getElementById('memoStatus').textContent = '点按录音，说话自动转文字';
+}
+
+async function saveMemo(audioBlob) {
+  const text = document.getElementById('memoLive').textContent || '';
+  const memo = {
+    id: Date.now(),
+    date: new Date().toISOString(),
+    text: text || '(未识别到语音)',
+    audio: audioBlob,
+  };
+  // Store audio as ArrayBuffer in IndexedDB
+  const buf = await audioBlob.arrayBuffer();
+  memo.audio = buf;
+  await memoDB.put(memo);
+  document.getElementById('memoLive').textContent = '';
+  renderMemos();
+}
+
+async function renderMemos() {
+  const memos = await memoDB.getAll();
+  const el = document.getElementById('memoList');
+  if (!memos.length) { el.innerHTML = ''; return; }
+  el.innerHTML = memos.map(m => {
+    const d = new Date(m.date);
+    const ds = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return `<div class="card" style="padding:12px 16px">
+      <div class="card-row" style="margin-bottom:6px">
+        <span style="font-size:12px;color:var(--sub)">${ds}</span>
+        <button class="btn btn-small" style="color:var(--danger);border-color:var(--danger);padding:4px 10px" onclick="deleteMemo(${m.id})">删除</button>
+      </div>
+      <div style="font-size:14px;line-height:1.5;margin-bottom:8px">${m.text}</div>
+      <button class="btn btn-small btn-outline" onclick="playMemo('${m.id}')">▶ 播放</button>
+    </div>`;
+  }).join('');
+}
+
+async function playMemo(id) {
+  const memos = await memoDB.getAll();
+  const m = memos.find(x => x.id === parseInt(id));
+  if (!m || !m.audio) return;
+  const blob = new Blob([m.audio], { type: 'audio/webm' });
+  const url = URL.createObjectURL(blob);
+  const a = new Audio(url);
+  a.play();
+  a.onended = () => URL.revokeObjectURL(url);
+}
+
+async function deleteMemo(id) {
+  await memoDB.remove(id);
+  renderMemos();
+}
+
+async function exportMemos() {
+  const memos = await memoDB.getAll();
+  if (!memos.length) { alert('暂无心情记录'); return; }
+  let csv = '日期,时间,内容\n';
+  memos.forEach(m => {
+    const d = new Date(m.date);
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const ts = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const text = m.text.replace(/"/g,'""');
+    csv += `${ds},${ts},"${text}"\n`;
+  });
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `心情记录_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function exportMemoAudio() {
+  const memos = await memoDB.getAll();
+  if (!memos.length) { alert('暂无心情记录'); return; }
+  // Download each recording as a separate file
+  for (const m of memos) {
+    if (!m.audio) continue;
+    const d = new Date(m.date);
+    const name = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
+    const blob = new Blob([m.audio], { type: 'audio/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `心情_${name}.webm`;
+    a.click();
+    URL.revokeObjectURL(url);
+    await new Promise(r => setTimeout(r, 300)); // small delay between downloads
+  }
+}
+
+// ── Init ──
+function init() {
+  resetDailyMeds();
+  renderTodayBar(); renderMeds(); renderScoreHistory();
+  renderScorePicker();
+  renderVisit(); drawChart(90); scheduleReminders();
+  renderMemos();
+  initFamilyView();
+  if ('Notification' in window && Notification.permission === 'default')
+    document.getElementById('notifyBanner').style.display = 'block';
+  // auto-refresh date at midnight
+  setInterval(() => { resetDailyMeds(); renderTodayBar(); }, 60000);
+}
+
+function postToSW() {
+  if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
+  navigator.serviceWorker.controller.postMessage({
+    type: 'config',
+    config: {
+      meds: meds.map(m => ({ name: m.name, time: m.time, done: m.done, asNeeded: m.asNeeded })),
+      scoreRemindTime,
+      visitInfo,
+      _lastResetDay: load('lastReset', ''),
+    }
+  });
+  syncFamily();
+}
+
+// ── Family sync ──
+let familyCode = load('familyCode', '');
+let syncServerUrl = load('syncServerUrl', '');
+
+function getSyncUrl() {
+  if (syncServerUrl) return syncServerUrl;
+  // Auto-detect: same host, port 8765
+  return location.protocol + '//' + location.hostname + ':8765';
+}
+
+async function syncFamily() {
+  if (!familyCode) return;
+  try {
+    await fetch(getSyncUrl() + '/' + familyCode, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: load('patientName', '小宝'),
+        meds: meds.map(m => ({ name: m.name, time: m.time, done: m.done, asNeeded: m.asNeeded })),
+        scoreRemindTime,
+        todayScore: scores[getToday()],
+        lastResetDay: load('lastReset', ''),
+      })
+    });
+  } catch (e) { /* server offline, fine */ }
+}
+
+// ── Family view (caregiver monitoring) ──
+
+async function pollFamilyView() {
+  if (!familyCode) return;
+  try {
+    const resp = await fetch(getSyncUrl() + '/' + familyCode);
+    const data = await resp.json();
+    if (data.error) {
+      document.getElementById('medList').innerHTML = '<div class="empty">未找到记录<br>请确认病人手机已设置同一家庭码</div>';
+      return;
+    }
+    renderFamilyDashboard(data);
+  } catch (e) {
+    // keep showing last data
+  }
+}
+
+function renderFamilyDashboard(data) {
+  // Today bar
+  document.getElementById('todayDate').textContent = data.updatedStr ? '最后更新 ' + data.updatedStr : '';
+  document.getElementById('todayScore').textContent = data.todayScore !== undefined ? data.todayScore : '-';
+
+  // Meds — status only, no buttons
+  const meds = data.meds || [];
+  const el = document.getElementById('medList');
+  if (!meds.length) {
+    el.innerHTML = '<div class="empty">暂无用药记录</div>';
+    return;
+  }
+  el.innerHTML = meds.map(m => {
+    const takeOk = m.done ? 'done' : '';
+    return `<div class="card" style="${m.asNeeded?'opacity:.6':''}">
+      <div class="card-row">
+        <div>
+          <div class="card-title">${m.name}${m.asNeeded?'（应急）':''}</div>
+          <div class="card-sub">${m.time||'不设时间'}</div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <div style="text-align:center">
+            <div class="med-check ${takeOk}">✓</div>
+            <span style="font-size:10px;color:var(--sub)">服用</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+init();
+
+// ── Service Worker for lock-screen reminders ──
+if ('serviceWorker' in navigator && 'Notification' in window) {
+  navigator.serviceWorker.register('sw.js', { scope: '/' })
+    .then(reg => {
+      const postWhenReady = () => {
+        if (navigator.serviceWorker.controller) postToSW();
+        else navigator.serviceWorker.addEventListener('controllerchange', () => postToSW());
+      };
+      if (reg.active) reg.update();
+      postWhenReady();
+    })
+    .catch(err => console.warn('SW:', err));
+}
+
+</script>
+</body>
+</html>
