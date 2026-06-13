@@ -937,10 +937,23 @@ function initFamilyView() {
 
 // ── Notifications ──
 function requestNotify() {
-  // HarmonyOS may not support in-app notification prompt; skip to system check
-  document.getElementById('notifyBanner').style.display = 'none';
-  scheduleReminders();
-  postToSW();
+  if (!('Notification' in window)) {
+    // No Notification API at all — use in-page alerts
+    document.getElementById('notifyBanner').style.display = 'none';
+    scheduleReminders();
+    postToSW();
+    return;
+  }
+  Notification.requestPermission().then(p => {
+    document.getElementById('notifyBanner').style.display = 'none';
+    scheduleReminders();
+    postToSW();
+  }).catch(e => {
+    // HarmonyOS etc: permission prompt failed, but system setting may be on
+    document.getElementById('notifyBanner').style.display = 'none';
+    scheduleReminders();
+    postToSW();
+  });
 }
 
 function showInPageAlert(msg) {
