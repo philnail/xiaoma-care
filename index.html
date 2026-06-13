@@ -270,7 +270,7 @@ nav a .icon { font-size: 24px; display: block; margin-bottom: 2px }
 
 <header>
   <h1>🌿 小马护理</h1>
-  <p>用药记录 · 状态追踪</p>
+  <p>用药记录 · 状态追踪 <span style="font-size:10px;opacity:.4">v3</span></p>
 </header>
 
 <div class="today-bar" id="todayBar">
@@ -725,14 +725,14 @@ function addMedReminder() {
   meds.push({ id: Date.now(), name, time, done: false });
   save('meds', meds);
   renderMedSettings(); renderMeds();
-  postToSW();
+  scheduleReminders(); postToSW();
 }
 
 function deleteMed(id) {
   meds = meds.filter(m => m.id !== id);
   save('meds', meds);
   renderMedSettings(); renderMeds();
-  postToSW();
+  scheduleReminders(); postToSW();
 }
 
 function renderMedSettings() {
@@ -762,7 +762,7 @@ function editMed(id) {
   save('meds', meds);
   renderMedSettings();
   renderMeds();
-  postToSW();
+  scheduleReminders(); postToSW();
 }
 
 function saveScoreRemind() {
@@ -980,6 +980,7 @@ function scheduleReminders() {
     const hh = String(now.getHours()).padStart(2,'0');
     const mm = String(now.getMinutes()).padStart(2,'0');
     const current = `${hh}:${mm}`;
+    console.log('⏰ check', current, '| meds:', meds.map(m=>m.time).join(','));
     meds.forEach(m => {
       if (m.time && m.time === current && !m.done) {
         speak('med');
