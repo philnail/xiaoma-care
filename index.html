@@ -259,6 +259,11 @@ nav a .icon { font-size: 24px; display: block; margin-bottom: 2px }
   50% { transform: translateY(-4px) }
 }
 .fab { animation: float 3s ease-in-out infinite }
+@keyframes bounceIn {
+  0% { transform: translate(-50%,-50%) scale(0.6); opacity: 0 }
+  60% { transform: translate(-50%,-50%) scale(1.05); opacity: 1 }
+  100% { transform: translate(-50%,-50%) scale(1); opacity: 1 }
+}
 </style>
 </head>
 <body>
@@ -441,6 +446,14 @@ nav a .icon { font-size: 24px; display: block; margin-bottom: 2px }
   🔔 开启通知，到点提醒你吃药哦～
   <button class="btn btn-small btn-primary" onclick="requestNotify()" style="margin-left:8px">开启</button>
 </div>
+
+<!-- In-page reminder alert -->
+<div id="inPageAlert" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#FFF;border:3px solid var(--pink);border-radius:20px;padding:30px 24px;text-align:center;z-index:300;box-shadow:0 8px 32px rgba(0,0,0,.15);min-width:260px;animation:bounceIn .4s ease">
+  <div style="font-size:48px;margin-bottom:12px">💊</div>
+  <div id="inPageAlertText" style="font-size:18px;font-weight:700;color:#555;margin-bottom:16px"></div>
+  <button class="btn btn-primary" onclick="dismissAlert()" style="font-size:16px;padding:10px 32px">知道了 ✓</button>
+</div>
+<div id="alertOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:299" onclick="dismissAlert()"></div>
 
 <script>
 // ── Storage ──
@@ -924,28 +937,26 @@ function initFamilyView() {
 
 // ── Notifications ──
 function requestNotify() {
-  if (!('Notification' in window)) {
-    alert('你的浏览器不支持通知功能。用药提醒会在页面内显示，请保持页面打开。');
-    document.getElementById('notifyBanner').style.display = 'none';
-    scheduleReminders();
-    return;
-  }
-  Notification.requestPermission().then(p => {
-    if (p === 'granted') {
-      document.getElementById('notifyBanner').style.display = 'none';
-      scheduleReminders();
-    } else if (p === 'denied') {
-      alert('通知被拒绝了。你可以去手机「设置 → 应用 → 浏览器 → 通知」手动打开。');
-      document.getElementById('notifyBanner').style.display = 'none';
-      scheduleReminders();
-    } else {
-      alert('未响应，请再点一次「开启」。');
-    }
-  }).catch(e => {
-    alert('通知权限请求失败：' + e.message + '。用药提醒会在页面内显示。');
-    document.getElementById('notifyBanner').style.display = 'none';
-    scheduleReminders();
-  });
+  // HarmonyOS may not support in-app notification prompt; skip to system check
+  document.getElementById('notifyBanner').style.display = 'none';
+  scheduleReminders();
+  postToSW();
+}
+
+function showInPageAlert(msg) {
+  document.getElementById('inPageAlertText').textContent = msg;
+  document.getElementById('inPageAlert').style.display = 'block';
+  document.getElementById('alertOverlay').style.display = 'block';
+  // Re-trigger animation
+  const el = document.getElementById('inPageAlert');
+  el.style.animation = 'none';
+  el.offsetHeight; // force reflow
+  el.style.animation = 'bounceIn .4s ease';
+}
+
+function dismissAlert() {
+  document.getElementById('inPageAlert').style.display = 'none';
+  document.getElementById('alertOverlay').style.display = 'none';
 }
 
 function scheduleReminders() {
@@ -959,8 +970,9 @@ function scheduleReminders() {
     meds.forEach(m => {
       if (m.time && m.time === current && !m.done) {
         speak('med');
-        if (Notification.permission==='granted')
-          new Notification('💊 用药提醒', { body: `该服用 ${m.name} 了`, tag: `med-${m.id}-${getToday()}`, requireInteraction: true, silent: false, vibrate: [200,100,200,100,400] });
+        try { if (Notification.permission==='granted')
+          new Notification('💊 用药提醒', { body: `该服用 ${m.name} 了`, tag: `med-${m.id}-${getToday()}`, requireInteraction: true, silent: false, vibrate: [200,100,200,100,400] }); } catch(e) {}
+        showInPageAlert(`💊 该服用 ${m.name} 了`);
         renderMeds();
       }
     });
