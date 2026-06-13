@@ -924,14 +924,28 @@ function initFamilyView() {
 
 // ── Notifications ──
 function requestNotify() {
-  if ('Notification' in window) {
-    Notification.requestPermission().then(p => {
-      if (p === 'granted') {
-        document.getElementById('notifyBanner').style.display = 'none';
-        scheduleReminders();
-      }
-    });
+  if (!('Notification' in window)) {
+    alert('你的浏览器不支持通知功能。用药提醒会在页面内显示，请保持页面打开。');
+    document.getElementById('notifyBanner').style.display = 'none';
+    scheduleReminders();
+    return;
   }
+  Notification.requestPermission().then(p => {
+    if (p === 'granted') {
+      document.getElementById('notifyBanner').style.display = 'none';
+      scheduleReminders();
+    } else if (p === 'denied') {
+      alert('通知被拒绝了。你可以去手机「设置 → 应用 → 浏览器 → 通知」手动打开。');
+      document.getElementById('notifyBanner').style.display = 'none';
+      scheduleReminders();
+    } else {
+      alert('未响应，请再点一次「开启」。');
+    }
+  }).catch(e => {
+    alert('通知权限请求失败：' + e.message + '。用药提醒会在页面内显示。');
+    document.getElementById('notifyBanner').style.display = 'none';
+    scheduleReminders();
+  });
 }
 
 function scheduleReminders() {
