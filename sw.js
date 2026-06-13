@@ -1,11 +1,13 @@
-// 小马护理 · Service Worker
-// 锁屏提醒 — 用 IndexedDB 存配置，SW 被杀后重启能自动恢复
+// 小马护理 · Service Worker v4
+// 锁屏提醒 — SW 先于主页面注册，独立运行定时器
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(clients.claim()));
 
 let checkTimer = null;
 let config = null;
+let scheduledTimers = [];
+
 const today = () => {
   const d = new Date();
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
@@ -31,9 +33,7 @@ async function loadConfig() {
       req.onsuccess = () => { db.close(); resolve(req.result || null); };
       req.onerror = () => { db.close(); resolve(null); };
     });
-  } catch (e) {
-    return null;
-  }
+  } catch (e) { return null; }
 }
 
 async function saveConfig(cfg) {
@@ -49,41 +49,56 @@ async function saveConfig(cfg) {
 }
 
 // ── Notification helpers ──
-const lastFired = {};  // tag → timestamp, to throttle re-notification
+const lastFired = {};
 
 function show(title, body, tag, vibe) {
   const now = Date.now();
-  // Throttle: don't re-fire the same tag within 30 seconds
   if (lastFired[tag] && (now - lastFired[tag]) < 30000) return;
   lastFired[tag] = now;
-
   return self.registration.showNotification(title, {
-    body,
-    tag,
+    body, tag,
     icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🌿</text></svg>',
     badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🌿</text></svg>',
-    requireInteraction: true,
-    silent: false,
-    vibrate: vibe || [200, 100, 200, 100, 400],
-    renotify: true,
+    requireInteraction: true, silent: false,
+    vibrate: vibe || [200, 100, 200, 100, 400], renotify: true,
   });
+}
+
+// ── Targeted scheduling ──
+function clearAllTimers() {
+  scheduledTimers.forEach(t => clearTimeout(t));
+  scheduledTimers = [];
+}
+
+function scheduleTargeted(timeStr, fn) {
+  if (!timeStr) return;
+  const [h, m] = timeStr.split(':').map(Number);
+  const now = new Date();
+  const target = new Date(now);
+  target.setHours(h, m, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+  const delay = target - now;
+  if (delay > 0 && delay < 86400000) {
+    const tid = setTimeout(() => { fn(); scheduleTargeted(timeStr, fn); }, delay);
+    scheduledTimers.push(tid);
+  }
 }
 
 // ── Check logic ──
 function check() {
-  if (!config) { checkTimer = setTimeout(check, 15000); return; }
+  if (!config) { checkTimer = setTimeout(check, 10000); return; }
   const now = new Date();
   const current = fmtHM(now);
   const td = today();
 
-  // Med reminders
+  console.log('SW check @', current, '| meds:', (config.meds||[]).map(m=>m.name+':'+m.time+'('+(m.done?'done':'pending')+')').join(', '));
+
   (config.meds || []).forEach(m => {
     if (m.time && m.time === current && !m.done) {
       show('💊 用药提醒', '该服用 ' + m.name + ' 了', 'med-' + m.name + '-' + td, [200, 100, 200, 100, 400]);
     }
   });
 
-  // Score — max 2 reminders per day
   if (config.scoreRemindTime === current) {
     const count = config._scoreRemindCount || 0;
     const scoreTag = 'score-' + td;
@@ -94,7 +109,6 @@ function check() {
     }
   }
 
-  // Visit
   const visit = config.visitInfo;
   if (visit) {
     const vDate = new Date(visit.date);
@@ -104,7 +118,6 @@ function check() {
     }
   }
 
-  // Reset daily
   const lastReset = config._lastResetDay || '';
   if (lastReset !== td) {
     (config.meds || []).forEach(m => { m.done = false; });
@@ -113,21 +126,44 @@ function check() {
     saveConfig(config);
   }
 
-  checkTimer = setTimeout(check, 15000);
+  checkTimer = setTimeout(check, 10000);
 }
 
 function startCheck() {
   if (checkTimer) clearTimeout(checkTimer);
+  clearAllTimers();
+  if (config && config.meds) {
+    config.meds.forEach(m => {
+      if (m.time && !m.done) {
+        scheduleTargeted(m.time, () => {
+          show('💊 用药提醒(精准)', '该服用 ' + m.name + ' 了', 'med-targeted-' + m.name + '-' + today(), [200, 100, 200, 100, 400]);
+        });
+      }
+    });
+    if (config.scoreRemindTime) {
+      scheduleTargeted(config.scoreRemindTime, () => {
+        show('📊 状态记录(精准)', '该记录今天的状态评分了（1-10分）', 'score-targeted-' + today(), [200, 100, 200]);
+      });
+    }
+  }
   check();
 }
 
-// ── Message from page ──
+// ── Messages ──
 self.addEventListener('message', async e => {
   if (e.data && e.data.type === 'config') {
     config = e.data.config;
     config._lastResetDay = config._lastResetDay || today();
+    console.log('SW config received:', JSON.stringify(config.meds?.map(m=>m.name+':'+m.time)));
     await saveConfig(config);
     startCheck();
+  }
+  if (e.data && e.data.type === 'test') {
+    if (config) {
+      show('🧪 SW测试', 'Service Worker 正常工作！提醒功能已就绪。', 'sw-test-' + Date.now(), [200,100,200,100,400]);
+    } else {
+      show('🧪 SW测试（无配置）', 'SW 工作中，但还没收到用药配置。请去设置页保存。', 'sw-test-noconfig-' + Date.now(), [200,100,200]);
+    }
   }
 });
 
@@ -136,21 +172,14 @@ self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(
     clients.matchAll({ type: 'window' }).then(cls => {
-      if (cls.length > 0) {
-        cls[0].focus();
-        cls[0].navigate(cls[0].url);
-      } else {
-        clients.openWindow('/');
-      }
+      if (cls.length > 0) { cls[0].focus(); cls[0].navigate(cls[0].url); }
+      else { clients.openWindow('/'); }
     })
   );
 });
 
-// ── Startup: load config from DB and resume ──
+// ── Startup ──
 (async () => {
   const saved = await loadConfig();
-  if (saved) {
-    config = saved;
-    startCheck();
-  }
+  if (saved) { config = saved; startCheck(); }
 })();

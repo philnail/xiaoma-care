@@ -270,7 +270,7 @@ nav a .icon { font-size: 24px; display: block; margin-bottom: 2px }
 
 <header>
   <h1>🌿 小马护理</h1>
-  <p>用药记录 · 状态追踪 <span style="font-size:10px;opacity:.4">v3</span></p>
+  <p>用药记录 · 状态追踪 <span style="font-size:10px;opacity:.4">v4</span></p>
 </header>
 
 <div class="today-bar" id="todayBar">
@@ -399,6 +399,15 @@ nav a .icon { font-size: 24px; display: block; margin-bottom: 2px }
     </div>
   </div>
   <div class="card" style="margin-top:8px">
+    <div class="card-row">
+      <div>
+        <div class="card-title">🧪 系统通知测试</div>
+        <div class="card-sub">立即弹一条通知（需先点上方「开启通知」）</div>
+      </div>
+      <button class="btn btn-small btn-primary" onclick="testReminderNow()">🧪 测试</button>
+    </div>
+  </div>
+  <div class="card" style="margin-top:8px">
     <label>语速（越小越慢）</label>
     <div style="display:flex;align-items:center;gap:10px">
       <span style="font-size:12px;color:var(--sub)">慢</span>
@@ -445,6 +454,7 @@ nav a .icon { font-size: 24px; display: block; margin-bottom: 2px }
 <div id="notifyBanner" style="display:none;position:fixed;top:0;left:0;right:0;background:linear-gradient(135deg,#FFF0F3,#FFE8EC);padding:14px 16px;text-align:center;font-size:13px;z-index:200;border-bottom:1.5px solid #F5E1E1;font-weight:600;color:#C07A85">
   🔔 开启通知，到点提醒你吃药哦～
   <button class="btn btn-small btn-primary" onclick="requestNotify()" style="margin-left:8px">开启</button>
+  <button class="btn btn-small btn-outline" onclick="testReminderNow()" style="margin-left:4px">🧪 测试</button>
 </div>
 
 <!-- In-page reminder alert -->
@@ -938,7 +948,6 @@ function initFamilyView() {
 // ── Notifications ──
 function requestNotify() {
   if (!('Notification' in window)) {
-    // No Notification API at all — use in-page alerts
     document.getElementById('notifyBanner').style.display = 'none';
     scheduleReminders();
     postToSW();
@@ -948,12 +957,29 @@ function requestNotify() {
     document.getElementById('notifyBanner').style.display = 'none';
     scheduleReminders();
     postToSW();
+    alert('✅ 通知权限：' + p + '。系统通知栏应该能收到提醒了！');
   }).catch(e => {
-    // HarmonyOS etc: permission prompt failed, but system setting may be on
     document.getElementById('notifyBanner').style.display = 'none';
     scheduleReminders();
     postToSW();
+    alert('⚠ 通知权限请求失败，将使用页面内弹窗提醒');
   });
+}
+
+function testReminderNow() {
+  console.log('🧪 TEST: triggering all reminder types');
+  voiceEnabled = true;
+  speak('med');
+  showInPageAlert('🧪 测试提醒：该服用 测试药 了');
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification('💊 测试提醒', { body: '这是一条测试通知！如果看到说明系统通知正常。', tag: 'test-' + Date.now(), requireInteraction: true, silent: false, vibrate: [200,100,200,100,400] });
+    } catch(e) {}
+  }
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'test' });
+  }
+  alert('🧪 测试已触发！\n\n通知权限：' + (('Notification' in window) ? Notification.permission : '不支持') + '\nSW 控制器：' + (!!(navigator.serviceWorker && navigator.serviceWorker.controller)) + '\n\n如果没看到系统通知弹窗，说明手机系统限制了浏览器通知，将使用页面内弹窗。');
 }
 
 function showInPageAlert(msg) {
@@ -1009,9 +1035,11 @@ function scheduleReminders() {
       }
     }
   };
-  window._reminders.push(setInterval(check, 30000));
+  window._reminders.push(setInterval(check, 10000));
   check();
   postToSW();
+  if (window._keepAlive) clearInterval(window._keepAlive);
+  window._keepAlive = setInterval(() => { postToSW(); }, 300000);
 }
 
 function resetDailyMeds() {
@@ -1274,18 +1302,35 @@ function init() {
 }
 
 function postToSW() {
-  if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
-  navigator.serviceWorker.controller.postMessage({
-    type: 'config',
-    config: {
-      meds: meds.map(m => ({ name: m.name, time: m.time, done: m.done, asNeeded: m.asNeeded })),
-      scoreRemindTime,
-      visitInfo,
-      _lastResetDay: load('lastReset', ''),
-    }
-  });
+  if (!navigator.serviceWorker) return;
+  const cfg = {
+    meds: meds.map(m => ({ name: m.name, time: m.time, done: m.done, asNeeded: m.asNeeded })),
+    scoreRemindTime,
+    visitInfo,
+    _lastResetDay: load('lastReset', ''),
+  };
+  save('_swConfig', cfg);
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'config', config: cfg });
+  } else {
+    setTimeout(() => {
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'config', config: cfg });
+      }
+    }, 2000);
+  }
   syncFamily();
 }
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    postToSW();
+    resetDailyMeds();
+    renderTodayBar();
+    renderMeds();
+    renderScorePicker();
+  }
+});
 
 // ── Family sync ──
 let familyCode = load('familyCode', '');
@@ -1362,21 +1407,30 @@ function renderFamilyDashboard(data) {
   }).join('');
 }
 
-init();
-
-// ── Service Worker for lock-screen reminders ──
-if ('serviceWorker' in navigator && 'Notification' in window) {
+// ── Service Worker registration (BEFORE init) ──
+(function registerSW() {
+  if (!('serviceWorker' in navigator)) { console.warn('⚠ No ServiceWorker support'); init(); return; }
   navigator.serviceWorker.register('sw.js', { scope: '/' })
     .then(reg => {
       const postWhenReady = () => {
-        if (navigator.serviceWorker.controller) postToSW();
-        else navigator.serviceWorker.addEventListener('controllerchange', () => postToSW());
+        if (navigator.serviceWorker.controller) {
+          postToSW();
+        } else {
+          navigator.serviceWorker.addEventListener('controllerchange', () => postToSW(), { once: true });
+        }
       };
-      if (reg.active) reg.update();
-      postWhenReady();
+      if (reg.active) { reg.update(); postWhenReady(); }
+      else if (reg.waiting) { postWhenReady(); }
+      else if (reg.installing) {
+        reg.installing.addEventListener('statechange', function f() {
+          if (this.state === 'activated') postWhenReady();
+        });
+      }
+      setTimeout(() => { postToSW(); }, 5000);
     })
-    .catch(err => console.warn('SW:', err));
-}
+    .catch(err => { console.warn('SW register failed:', err); });
+  init();
+})();
 
 </script>
 </body>
